@@ -128,24 +128,38 @@ def set_budget():
 @login_required
 def add_expense():
     if request.method == 'POST':
-        amount = request.form.get('amount')
-        category = request.form.get('category')
-        date = request.form.get('date')
-        description = request.form.get('description')
-        user_id = session['user_id']
-        
-        conn = get_db_connection()
-        if conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO expenses (user_id, amount, category, expense_date, description)
-                VALUES (%s, %s, %s, %s, %s)
-            """, (user_id, amount, category, date, description))
-            conn.commit()
-            cursor.close()
-            conn.close()
-            flash('Expense added successfully!', 'success')
-            return redirect(url_for('expenses.dashboard'))
+        try:
+            amount = float(request.form.get('amount', 0))
+            category = request.form.get('category')
+            date = request.form.get('date')
+            description = request.form.get('description', '')
+            user_id = session['user_id']
+            
+            if amount <= 0:
+                flash('Amount must be greater than zero', 'error')
+                return redirect(url_for('expenses.add_expense'))
+            
+            valid_categories = ['Food', 'Travel', 'Shopping', 'Bills', 'Others']
+            if category not in valid_categories:
+                flash('Invalid category selected', 'error')
+                return redirect(url_for('expenses.add_expense'))
+
+            conn = get_db_connection()
+            if conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO expenses (user_id, amount, category, expense_date, description)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (user_id, amount, category, date, description))
+                conn.commit()
+                cursor.close()
+                conn.close()
+                flash('Expense recorded successfully!', 'success')
+                return redirect(url_for('expenses.dashboard'))
+            else:
+                flash('Database connection failed. Please try again.', 'error')
+        except ValueError:
+            flash('Invalid amount format', 'error')
             
     return render_template('add_expense.html')
 
@@ -154,24 +168,36 @@ def add_expense():
 def edit_expense(expense_id):
     user_id = session['user_id']
     conn = get_db_connection()
+    if not conn:
+        flash('Database error', 'error')
+        return redirect(url_for('expenses.dashboard'))
+        
     cursor = conn.cursor(dictionary=True)
     
     if request.method == 'POST':
-        amount = request.form.get('amount')
-        category = request.form.get('category')
-        date = request.form.get('date')
-        description = request.form.get('description')
-        
-        cursor.execute("""
-            UPDATE expenses 
-            SET amount=%s, category=%s, expense_date=%s, description=%s 
-            WHERE id=%s AND user_id=%s
-        """, (amount, category, date, description, expense_id, user_id))
-        conn.commit()
-        cursor.close()
-        conn.close()
-        flash('Expense updated successfully!', 'success')
-        return redirect(url_for('expenses.dashboard'))
+        try:
+            amount = float(request.form.get('amount', 0))
+            category = request.form.get('category')
+            date = request.form.get('date')
+            description = request.form.get('description', '')
+            
+            if amount <= 0:
+                flash('Amount must be greater than zero', 'error')
+                return redirect(url_for('expenses.edit_expense', expense_id=expense_id))
+
+            cursor.execute("""
+                UPDATE expenses 
+                SET amount=%s, category=%s, expense_date=%s, description=%s 
+                WHERE id=%s AND user_id=%s
+            """, (amount, category, date, description, expense_id, user_id))
+            conn.commit()
+            flash('Expense updated!', 'success')
+            return redirect(url_for('expenses.dashboard'))
+        except ValueError:
+            flash('Invalid amount format', 'error')
+        finally:
+            cursor.close()
+            conn.close()
     
     cursor.execute("SELECT * FROM expenses WHERE id=%s AND user_id=%s", (expense_id, user_id))
     expense = cursor.fetchone()

@@ -3,38 +3,50 @@
 {% block title %}Edit Expense - Smart Expense Tracker{% endblock %}
 
 {% block content %}
-<div class="card auth-card">
-    <h2 style="margin-bottom: 2rem;">Edit Expense</h2>
+<div class="card auth-card" style="max-width: 550px;">
+    <div style="text-align: center; margin-bottom: 2rem;">
+        <div style="background: rgba(99, 102, 241, 0.1); width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
+            <i class="fa-solid fa-pen-to-square" style="color: var(--primary); font-size: 1.5rem;"></i>
+        </div>
+        <h2 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em;">Edit Expense</h2>
+        <p style="color: var(--text-light); font-size: 0.9rem;">Modify the details of your transaction.</p>
+    </div>
     
     <form action="{{ url_for('expenses.edit_expense', expense_id=expense.id) }}" method="POST">
         <div class="form-group">
-            <label for="amount">Amount (₹)</label>
-            <input type="number" step="0.01" id="amount" name="amount" value="{{ expense.amount }}" required>
+            <label for="amount"><i class="fa-solid fa-indian-rupee-sign"></i> Amount</label>
+            <input type="number" step="0.01" id="amount" name="amount" value="{{ expense.amount }}" style="font-size: 1.25rem; font-weight: 700;" required>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+            <div class="form-group">
+                <label for="category"><i class="fa-solid fa-list-ul"></i> Category</label>
+                <select id="category" name="category" required>
+                    <option value="Food" {{ 'selected' if expense.category == 'Food' }}>Food</option>
+                    <option value="Travel" {{ 'selected' if expense.category == 'Travel' }}>Travel</option>
+                    <option value="Shopping" {{ 'selected' if expense.category == 'Shopping' }}>Shopping</option>
+                    <option value="Bills" {{ 'selected' if expense.category == 'Bills' }}>Bills</option>
+                    <option value="Others" {{ 'selected' if expense.category == 'Others' }}>Others</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="date"><i class="fa-solid fa-calendar"></i> Date</label>
+                <input type="date" id="date" name="date" value="{{ expense.expense_date }}" required>
+            </div>
         </div>
         
         <div class="form-group">
-            <label for="category">Category</label>
-            <select id="category" name="category" required>
-                <option value="Food" {{ 'selected' if expense.category == 'Food' }}>Food</option>
-                <option value="Travel" {{ 'selected' if expense.category == 'Travel' }}>Travel</option>
-                <option value="Shopping" {{ 'selected' if expense.category == 'Shopping' }}>Shopping</option>
-                <option value="Bills" {{ 'selected' if expense.category == 'Bills' }}>Bills</option>
-                <option value="Others" {{ 'selected' if expense.category == 'Others' }}>Others</option>
-            </select>
+            <label for="description"><i class="fa-solid fa-pen"></i> Description</label>
+            <textarea id="description" name="description" rows="2">{{ expense.description }}</textarea>
         </div>
         
-        <div class="form-group">
-            <label for="date">Date</label>
-            <input type="date" id="date" name="date" value="{{ expense.expense_date }}" required>
-        </div>
-        
-        <div class="form-group">
-            <label for="description">Description (Optional)</label>
-            <textarea id="description" name="description" rows="3">{{ expense.description }}</textarea>
-        </div>
-        
-        <button type="submit" class="btn">Update Expense</button>
-        <a href="{{ url_for('expenses.dashboard') }}" style="display: block; text-align: center; margin-top: 1rem; text-decoration: none; color: var(--text-light);">Cancel</a>
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+            Update Expense
+        </button>
+        <a href="{{ url_for('expenses.dashboard') }}" style="display: block; text-align: center; margin-top: 1.25rem; text-decoration: none; color: var(--text-light); font-weight: 600; font-size: 0.9rem;">
+            <i class="fa-solid fa-xmark"></i> Cancel Edit
+        </a>
     </form>
 </div>
 {% endblock %}

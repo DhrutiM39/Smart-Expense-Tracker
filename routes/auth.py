@@ -7,39 +7,45 @@ auth_bp = Blueprint('auth', __name__)
 @auth_bp.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
-        name = request.form.get('name')
-        email = request.form.get('email')
-        password = request.form.get('password')
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
         
+        if not name or not email or not password:
+            flash('All fields are required', 'error')
+            return redirect(url_for('auth.signup'))
+
         conn = get_db_connection()
         if conn:
             cursor = conn.cursor()
-            # Check if user exists
             cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
             if cursor.fetchone():
                 flash('Email already registered', 'error')
                 return redirect(url_for('auth.signup'))
             
-            # Hash password and insert
             password_hash = generate_password_hash(password)
             cursor.execute("INSERT INTO users (name, email, password_hash) VALUES (%s, %s, %s)",
                          (name, email, password_hash))
             conn.commit()
             cursor.close()
             conn.close()
-            flash('Signup successful! Please login.', 'success')
+            flash('Welcome! Please log in with your new account.', 'success')
             return redirect(url_for('auth.login'))
         else:
-            flash('Database connection error', 'error')
+            flash('Database error. Please try again later.', 'error')
             
     return render_template('signup.html')
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
         
+        if not email or not password:
+            flash('Please enter both email and password', 'error')
+            return redirect(url_for('auth.login'))
+
         conn = get_db_connection()
         if conn:
             cursor = conn.cursor(dictionary=True)
@@ -49,13 +55,14 @@ def login():
             conn.close()
             
             if user and check_password_hash(user['password_hash'], password):
+                session.clear()
                 session['user_id'] = user['id']
                 session['user_name'] = user['name']
                 return redirect(url_for('expenses.dashboard'))
             else:
-                flash('Invalid email or password', 'error')
+                flash('Invalid login credentials', 'error')
         else:
-            flash('Database connection error', 'error')
+            flash('Database error', 'error')
             
     return render_template('login.html')
 
