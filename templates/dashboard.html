@@ -3,21 +3,77 @@
 {% block title %}Dashboard - Smart Expense Tracker{% endblock %}
 
 {% block content %}
-<header style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+<header style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: flex-start;">
     <div>
-        <h1>Welcome, {{ session.user_name }}!</h1>
-        <p style="color: var(--text-light);">Here's your expense overview.</p>
+        <h1>Dashboard</h1>
+        <p style="color: var(--text-light);">Welcome back, {{ session.user_name }}!</p>
     </div>
-    <a href="{{ url_for('expenses.add_expense') }}" class="btn" style="width: auto;">+ Add Expense</a>
+    <div style="display: flex; gap: 1rem;">
+        <a href="{{ url_for('expenses.export_expenses') }}" class="btn" style="background: var(--text-light); width: auto;">📤 Export CSV</a>
+        <a href="{{ url_for('expenses.add_expense') }}" class="btn" style="width: auto;">+ Add Expense</a>
+    </div>
 </header>
+
+<!-- Filter Bar -->
+<div class="card" style="margin-bottom: 2rem;">
+    <form method="GET" action="{{ url_for('expenses.dashboard') }}" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+        <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 150px;">
+            <label>Category</label>
+            <select name="category">
+                <option value="">All Categories</option>
+                <option value="Food" {{ 'selected' if filters.category == 'Food' }}>Food</option>
+                <option value="Travel" {{ 'selected' if filters.category == 'Travel' }}>Travel</option>
+                <option value="Shopping" {{ 'selected' if filters.category == 'Shopping' }}>Shopping</option>
+                <option value="Bills" {{ 'selected' if filters.category == 'Bills' }}>Bills</option>
+                <option value="Others" {{ 'selected' if filters.category == 'Others' }}>Others</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 150px;">
+            <label>Start Date</label>
+            <input type="date" name="start_date" value="{{ filters.start_date or '' }}">
+        </div>
+        <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 150px;">
+            <label>End Date</label>
+            <input type="date" name="end_date" value="{{ filters.end_date or '' }}">
+        </div>
+        <button type="submit" class="btn" style="width: auto; padding: 0.8rem 1.5rem;">Filter</button>
+        <a href="{{ url_for('expenses.dashboard') }}" class="btn" style="width: auto; background: #e2e8f0; color: var(--text); padding: 0.8rem 1.5rem;">Clear</a>
+    </form>
+</div>
 
 <div class="dashboard-grid">
     <div class="card stat-card">
         <h3>Total Expenses</h3>
         <div class="value">₹{{ "{:,.2f}".format(total_expense) }}</div>
-        <p>Current Period</p>
+        
+        {% if user_budget > 0 %}
+            <div style="margin-top: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.5rem;">
+                    <span>Budget: ₹{{ "{:,.2f}".format(user_budget) }}</span>
+                    <span>{{ "{:.0f}%".format((total_expense / user_budget) * 100) if user_budget > 0 else 0 }}</span>
+                </div>
+                <div style="height: 8px; background: rgba(255,255,255,0.2); border-radius: 4px; overflow: hidden;">
+                    <div style="height: 100%; background: white; width: {{ [(total_expense / user_budget) * 100, 100]|min }}%;"></div>
+                </div>
+                {% if total_expense > user_budget %}
+                    <p style="font-size: 0.75rem; margin-top: 0.5rem; color: #fee2e2;">⚠️ Over budget!</p>
+                {% endif %}
+            </div>
+        {% else %}
+            <p style="font-size: 0.8rem; opacity: 0.8; margin-top: 1rem;">Set a monthly budget to track progress.</p>
+        {% endif %}
     </div>
-    
+
+    <div class="card">
+        <h3>Set Monthly Budget</h3>
+        <form action="{{ url_for('expenses.set_budget') }}" method="POST" style="margin-top: 1rem;">
+            <div class="form-group">
+                <input type="number" name="budget" placeholder="Enter amount" value="{{ user_budget if user_budget > 0 else '' }}" required>
+            </div>
+            <button type="submit" class="btn" style="padding: 0.6rem;">Update Budget</button>
+        </form>
+    </div>
+
     <div class="card">
         <h3>Category Breakdown</h3>
         <div class="chart-container">

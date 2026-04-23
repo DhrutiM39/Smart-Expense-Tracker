@@ -13,6 +13,10 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+import csv
+from io import StringIO
+from flask import make_response
+
 @expenses_bp.route('/dashboard')
 @login_required
 def dashboard():
@@ -23,9 +27,32 @@ def dashboard():
     
     cursor = conn.cursor(dictionary=True)
     
-    # Get all expenses for user
-    cursor.execute("SELECT * FROM expenses WHERE user_id = %s ORDER BY expense_date DESC", (user_id,))
+    # Get filters
+    category_filter = request.args.get('category')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
+    query = "SELECT * FROM expenses WHERE user_id = %s"
+    params = [user_id]
+    
+    if category_filter:
+        query += " AND category = %s"
+        params.append(category_filter)
+    if start_date:
+        query += " AND expense_date >= %s"
+        params.append(start_date)
+    if end_date:
+        query += " AND expense_date <= %s"
+        params.append(end_date)
+        
+    query += " ORDER BY expense_date DESC"
+    
+    cursor.execute(query, tuple(params))
     expenses = cursor.fetchall()
+    
+    # Get user budget
+    cursor.execute("SELECT monthly_budget FROM users WHERE id = %s", (user_id,))
+    user_budget = cursor.fetchone()['monthly_budget'] or 0
     
     # Get category-wise totals
     cursor.execute("""
@@ -58,7 +85,44 @@ def dashboard():
                          expenses=expenses, 
                          category_totals=category_totals, 
                          total_expense=total_expense,
-                         monthly_summary=monthly_summary)
+                         monthly_summary=monthly_summary,
+                         user_budget=user_budget,
+                         filters={'category': category_filter, 'start_date': start_date, 'end_date': end_date})
+
+@expenses_bp.route('/export')
+@login_required
+def export_expenses():
+    user_id = session['user_id']
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT expense_date, category, amount, description FROM expenses WHERE user_id = %s ORDER BY expense_date DESC", (user_id,))
+    expenses = cursor.fetchall()
+    
+    si = StringIO()
+    cw = csv.writer(si)
+    cw.writerow(['Date', 'Category', 'Amount (INR)', 'Description'])
+    for exp in expenses:
+        cw.writerow([exp['expense_date'], exp['category'], exp['amount'], exp['description']])
+    
+    output = make_response(si.getvalue())
+    output.headers["Content-Disposition"] = "attachment; filename=expenses.csv"
+    output.headers["Content-type"] = "text/csv"
+    return output
+
+@expenses_bp.route('/set_budget', methods=['POST'])
+@login_required
+def set_budget():
+    budget = request.form.get('budget')
+    user_id = session['user_id']
+    conn = get_db_connection()
+    if conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE users SET monthly_budget = %s WHERE id = %s", (budget, user_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        flash('Budget updated!', 'success')
+    return redirect(url_for('expenses.dashboard'))
 
 @expenses_bp.route('/add', methods=['GET', 'POST'])
 @login_required
