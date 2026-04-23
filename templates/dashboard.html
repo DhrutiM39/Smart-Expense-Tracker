@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Smart Expense Tracker{% endblock %}
+
+{% block content %}
+<header style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+    <div>
+        <h1>Welcome, {{ session.user_name }}!</h1>
+        <p style="color: var(--text-light);">Here's your expense overview.</p>
+    </div>
+    <a href="{{ url_for('expenses.add_expense') }}" class="btn" style="width: auto;">+ Add Expense</a>
+</header>
+
+<div class="dashboard-grid">
+    <div class="card stat-card">
+        <h3>Total Expenses</h3>
+        <div class="value">₹{{ "{:,.2f}".format(total_expense) }}</div>
+        <p>Current Period</p>
+    </div>
+    
+    <div class="card">
+        <h3>Category Breakdown</h3>
+        <div class="chart-container">
+            <canvas id="categoryChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h3>Monthly Trend</h3>
+        <div class="chart-container">
+            <canvas id="trendChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<section style="margin-top: 3rem;">
+    <h2>Recent Transactions</h2>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Category</th>
+                    <th>Description</th>
+                    <th>Amount</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for expense in expenses %}
+                <tr>
+                    <td>{{ expense.expense_date.strftime('%d %b, %Y') }}</td>
+                    <td><span class="category-badge cat-{{ expense.category }}">{{ expense.category }}</span></td>
+                    <td>{{ expense.description or '-' }}</td>
+                    <td style="font-weight: 600;">₹{{ "{:,.2f}".format(expense.amount) }}</td>
+                    <td class="actions">
+                        <a href="{{ url_for('expenses.edit_expense', expense_id=expense.id) }}" class="edit-btn">Edit</a>
+                        <a href="{{ url_for('expenses.delete_expense', expense_id=expense.id) }}" class="delete-btn" onclick="return confirm('Delete this expense?')">Delete</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-light);">No expenses found. Start by adding one!</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Category Pie Chart
+    const catCtx = document.getElementById('categoryChart').getContext('2d');
+    const categoryData = {
+        labels: [{% for item in category_totals %}'{{ item.category }}',{% endfor %}],
+        datasets: [{
+            data: [{% for item in category_totals %}{{ item.total }},{% endfor %}],
+            backgroundColor: [
+                '#6366f1', '#ec4899', '#10b981', '#ef4444', '#f59e0b'
+            ],
+            borderWidth: 0
+        }]
+    };
+    
+    new Chart(catCtx, {
+        type: 'doughnut',
+        data: categoryData,
+        options: {
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' }
+            },
+            cutout: '70%'
+        }
+    });
+
+    // Monthly Trend Bar Chart
+    const trendCtx = document.getElementById('trendChart').getContext('2d');
+    const trendData = {
+        labels: [{% for item in monthly_summary|reverse %}'{{ item.month }}',{% endfor %}],
+        datasets: [{
+            label: 'Total Spending',
+            data: [{% for item in monthly_summary|reverse %}{{ item.total }},{% endfor %}],
+            backgroundColor: 'rgba(99, 102, 241, 0.2)',
+            borderColor: '#6366f1',
+            borderWidth: 2,
+            tension: 0.4,
+            fill: true
+        }]
+    };
+
+    new Chart(trendCtx, {
+        type: 'line',
+        data: trendData,
+        options: {
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, grid: { display: false } },
+                x: { grid: { display: false } }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Signup - Smart Expense Tracker{% endblock %}
+
+{% block content %}
+<div class="card auth-card">
+    <h2 style="margin-bottom: 0.5rem;">Create Account</h2>
+    <p style="color: var(--text-light); margin-bottom: 2rem;">Start tracking your spending today</p>
+    
+    <form action="{{ url_for('auth.signup') }}" method="POST">
+        <div class="form-group">
+            <label for="name">Full Name</label>
+            <input type="text" id="name" name="name" placeholder="John Doe" required>
+        </div>
+        <div class="form-group">
+            <label for="email">Email Address</label>
+            <input type="email" id="email" name="email" placeholder="name@example.com" required>
+        </div>
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="btn">Create Account</button>
+    </form>
+    
+    <p style="margin-top: 1.5rem; text-align: center; font-size: 0.9rem;">
+        Already have an account? <a href="{{ url_for('auth.login') }}" style="color: var(--primary); text-decoration: none; font-weight: 600;">Login</a>
+    </p>
+</div>
+{% endblock %}
