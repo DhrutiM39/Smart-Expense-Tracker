@@ -2,28 +2,87 @@
 
 {% block title %}Dashboard - Smart Expense Tracker{% endblock %}
 
-{% block content %}
-<header style="margin-bottom: 2.5rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
-    <div>
-        <h1 style="font-size: 2.2rem; font-weight: 800; letter-spacing: -0.03em;">Dashboard</h1>
-        <p style="color: var(--text-light); font-weight: 500;">Hello {{ session.user_name }}, track your finances in style.</p>
-    </div>
-    <div style="display: flex; gap: 1rem;">
-        <a href="{{ url_for('expenses.export_expenses') }}" class="btn" style="background: rgba(15, 23, 42, 0.05); color: var(--text); box-shadow: none; width: auto;">
-            <i class="fa-solid fa-file-export"></i> Export CSV
-        </a>
-        <a href="{{ url_for('expenses.add_expense') }}" class="btn btn-primary" style="width: auto;">
-            <i class="fa-solid fa-circle-plus"></i> Add Expense
-        </a>
-    </div>
-</header>
+{% block header_content %}
+    <h1 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 0.25rem;">Dashboard</h1>
+    <p style="color: var(--text-muted); font-weight: 500; font-size: 0.95rem;">Welcome back, {{ session.user_name }}!</p>
+{% endblock %}
 
-<!-- Filter Bar -->
-<div class="card" style="margin-bottom: 2.5rem; border: none; background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(8px);">
-    <form method="GET" action="{{ url_for('expenses.dashboard') }}" style="display: flex; gap: 1.5rem; align-items: flex-end; flex-wrap: wrap;">
-        <div class="form-group" style="margin-bottom: 0; flex: 1.5; min-width: 200px;">
-            <label><i class="fa-solid fa-tag" style="margin-right: 0.5rem; opacity: 0.5;"></i> Category</label>
-            <select name="category">
+{% block content %}
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem;">
+    <!-- Main Stat Card -->
+    <div class="glass-card stat-card animate-fade-in" style="grid-column: span 1;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <span style="font-size: 0.75rem; font-weight: 800; letter-spacing: 0.1em; opacity: 0.8;">TOTAL SPENDING</span>
+            <i class="fa-solid fa-wallet" style="opacity: 0.6;"></i>
+        </div>
+        <div style="font-size: 2.5rem; font-weight: 800; letter-spacing: -0.04em;">₹{{ '{:,.2f}'.format(total_expense) }}</div>
+        
+        {% if user_budget > 0 %}
+            <div style="margin-top: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.5rem; font-weight: 600;">
+                    <span>Budget Usage</span>
+                    <span>{{ '{:.1f}%'.format((total_expense / user_budget) * 100) }}</span>
+                </div>
+                <div style="height: 8px; background: rgba(255,255,255,0.2); border-radius: 10px; overflow: hidden;">
+                    {% set usage_pct = (total_expense / user_budget) * 100 %}
+                    {% set bar_color = '#f87171' if usage_pct > 100 else 'white' %}
+                    {% set bar_width = ([usage_pct, 100]|min)|string + '%' %}
+                    <div id="usageBar" style="height: 100%; transition: width 1s ease-in-out;" 
+                         data-color="{{ bar_color }}" 
+                         data-width="{{ bar_width }}"></div>
+                </div>
+                <script>
+                    window.addEventListener('DOMContentLoaded', () => {
+                        const bar = document.getElementById('usageBar');
+                        if (bar) {
+                            bar.style.backgroundColor = bar.getAttribute('data-color');
+                            bar.style.width = bar.getAttribute('data-width');
+                        }
+                    });
+                </script>
+
+
+
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Quick Actions Card -->
+    <div class="glass-card animate-fade-in" style="animation-delay: 0.1s; padding: 2rem;">
+        <h3 style="font-size: 1.1rem; margin-bottom: 1.25rem; font-weight: 700;">Quick Actions</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <a href="{{ url_for('expenses.add_expense') }}" class="btn btn-primary" style="padding: 1.25rem; text-align: center;">
+                <i class="fa-solid fa-plus-circle"></i> Add
+            </a>
+            <a href="{{ url_for('expenses.export_expenses') }}" class="btn" style="background: #f1f5f9; color: var(--text-dark); padding: 1.25rem; text-align: center;">
+                <i class="fa-solid fa-download"></i> Export
+            </a>
+        </div>
+        <div style="margin-top: 1.5rem;">
+            <form action="{{ url_for('expenses.set_budget') }}" method="POST" style="display: flex; gap: 0.5rem;">
+                <input type="number" name="budget" class="form-control" placeholder="Set Budget" value="{{ user_budget if user_budget > 0 else '' }}" required>
+                <button type="submit" class="btn btn-primary" style="padding: 0 1rem;"><i class="fa-solid fa-check"></i></button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Chart Card -->
+    <div class="glass-card animate-fade-in" style="animation-delay: 0.2s; padding: 2rem;">
+        <h3 style="font-size: 1.1rem; margin-bottom: 1.25rem; font-weight: 700;">Distribution</h3>
+        <div style="height: 180px;">
+            <canvas id="categoryChart" 
+                data-labels='{{ category_totals|map(attribute="category")|list|tojson }}'
+                data-values='{{ category_totals|map(attribute="total")|list|tojson }}'>
+            </canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Filters & Table Section -->
+<section class="animate-fade-in" style="animation-delay: 0.3s;">
+    <div class="glass-card" style="padding: 1.25rem; margin-bottom: 1.5rem;">
+        <form method="GET" action="{{ url_for('expenses.dashboard') }}" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+            <select name="category" class="form-control" style="width: auto; min-width: 150px; padding: 0.6rem 1rem;">
                 <option value="">All Categories</option>
                 <option value="Food" {{ 'selected' if filters.category == 'Food' }}>Food</option>
                 <option value="Travel" {{ 'selected' if filters.category == 'Travel' }}>Travel</option>
@@ -31,116 +90,47 @@
                 <option value="Bills" {{ 'selected' if filters.category == 'Bills' }}>Bills</option>
                 <option value="Others" {{ 'selected' if filters.category == 'Others' }}>Others</option>
             </select>
-        </div>
-        <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 150px;">
-            <label><i class="fa-solid fa-calendar-day" style="margin-right: 0.5rem; opacity: 0.5;"></i> From</label>
-            <input type="date" name="start_date" value="{{ filters.start_date or '' }}">
-        </div>
-        <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 150px;">
-            <label><i class="fa-solid fa-calendar-check" style="margin-right: 0.5rem; opacity: 0.5;"></i> To</label>
-            <input type="date" name="end_date" value="{{ filters.end_date or '' }}">
-        </div>
-        <div style="display: flex; gap: 0.5rem;">
-            <button type="submit" class="btn btn-primary" style="padding: 0.9rem 1.5rem; box-shadow: none;">Apply</button>
-            <a href="{{ url_for('expenses.dashboard') }}" class="btn" style="background: white; color: var(--text-light); border: 1px solid #e2e8f0; padding: 0.9rem 1.2rem; box-shadow: none;"><i class="fa-solid fa-rotate-left"></i></a>
-        </div>
-    </form>
-</div>
-
-<div class="dashboard-grid">
-    <!-- Stat Card -->
-    <div class="card stat-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <h3 style="font-weight: 600; opacity: 0.9;">Total Spending</h3>
-            <i class="fa-solid fa-wallet" style="font-size: 1.5rem; opacity: 0.5;"></i>
-        </div>
-        <div class="value">₹{{ "{:,.2f}".format(total_expense) }}</div>
-        
-        {% if user_budget > 0 %}
-            <div style="margin-top: 2rem;">
-                <div style="display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 0.75rem; font-weight: 500;">
-                    <span>Budget Usage</span>
-                    <span>{{ "{:.1f}%".format((total_expense / user_budget) * 100) if user_budget > 0 else 0 }}</span>
-                </div>
-                <div style="height: 12px; background: rgba(255,255,255,0.2); border-radius: 6px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);">
-                    {% set usage_pct = (total_expense / user_budget) * 100 %}
-                    <div style="height: 100%; background: {% if usage_pct > 100 %}#f87171{% elif usage_pct > 80 %}#fbbf24{% else %}white{% endif %}; width: {{ [usage_pct, 100]|min }}%; transition: width 1s ease-in-out;"></div>
-                </div>
-                <p style="font-size: 0.8rem; margin-top: 0.75rem; font-weight: 500; opacity: 0.9;">
-                    Limit: ₹{{ "{:,.2f}".format(user_budget) }}
-                </p>
-            </div>
-        {% endif %}
-    </div>
-
-    <!-- Budget Form Card -->
-    <div class="card">
-        <h3 style="margin-bottom: 1.25rem;"><i class="fa-solid fa-bullseye" style="color: var(--primary); margin-right: 0.5rem;"></i> Monthly Goal</h3>
-        <form action="{{ url_for('expenses.set_budget') }}" method="POST">
-            <div class="form-group">
-                <label>Update your monthly budget</label>
-                <div style="position: relative;">
-                    <span style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); font-weight: 700; color: var(--text-light);">₹</span>
-                    <input type="number" name="budget" placeholder="0.00" value="{{ user_budget if user_budget > 0 else '' }}" style="padding-left: 2rem;" required>
-                </div>
-            </div>
-            <button type="submit" class="btn btn-primary" style="width: 100%;">Set Budget</button>
+            <input type="date" name="start_date" class="form-control" style="width: auto; padding: 0.6rem 1rem;" value="{{ filters.start_date or '' }}">
+            <input type="date" name="end_date" class="form-control" style="width: auto; padding: 0.6rem 1rem;" value="{{ filters.end_date or '' }}">
+            <button type="submit" class="btn btn-primary" style="padding: 0.6rem 1.25rem;">Apply</button>
+            <a href="{{ url_for('expenses.dashboard') }}" class="btn" style="background: #f1f5f9; padding: 0.6rem 1rem;"><i class="fa-solid fa-rotate-left"></i></a>
         </form>
     </div>
 
-    <!-- Category Chart -->
-    <div class="card">
-        <h3 style="margin-bottom: 1.25rem;"><i class="fa-solid fa-chart-donut" style="color: var(--secondary); margin-right: 0.5rem;"></i> Spending Mix</h3>
-        <div class="chart-container" style="height: 220px;">
-            <canvas id="categoryChart"></canvas>
-        </div>
-    </div>
-</div>
-
-<section style="margin-top: 4rem;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-        <h2>History</h2>
-        <span style="background: var(--primary); color: white; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 700;">{{ expenses|length }} entries</span>
-    </div>
-    
-    <div class="table-container">
-        <table>
+    <div class="glass-card" style="padding: 0; overflow: hidden;">
+        <table class="table" style="width: 100%; border-collapse: collapse;">
             <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Category</th>
-                    <th>Description</th>
-                    <th>Amount</th>
-                    <th></th>
+                <tr style="background: rgba(0,0,0,0.02); text-align: left;">
+                    <th style="padding: 1.25rem;">Date</th>
+                    <th style="padding: 1.25rem;">Category</th>
+                    <th style="padding: 1.25rem;">Description</th>
+                    <th style="padding: 1.25rem; text-align: right;">Amount</th>
+                    <th style="padding: 1.25rem; text-align: center;">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for expense in expenses %}
-                <tr>
-                    <td style="color: var(--text-light); font-weight: 500;">{{ expense.expense_date.strftime('%d %b, %Y') }}</td>
-                    <td>
-                        <span class="category-badge cat-{{ expense.category }}">
-                            {% if expense.category == 'Food' %}<i class="fa-solid fa-utensils"></i>
-                            {% elif expense.category == 'Travel' %}<i class="fa-solid fa-plane"></i>
-                            {% elif expense.category == 'Shopping' %}<i class="fa-solid fa-bag-shopping"></i>
-                            {% elif expense.category == 'Bills' %}<i class="fa-solid fa-file-invoice-dollar"></i>
-                            {% else %}<i class="fa-solid fa-ellipsis"></i>{% endif %}
+                <tr style="border-top: 1px solid var(--glass-border);">
+                    <td style="padding: 1.25rem; font-weight: 600; color: var(--text-muted);">{{ expense.expense_date }}</td>
+                    <td style="padding: 1.25rem;">
+                        <span class="badge badge-{{ expense.category.lower() }}">
                             {{ expense.category }}
                         </span>
                     </td>
-                    <td style="font-weight: 500;">{{ expense.description or '—' }}</td>
-                    <td style="font-weight: 800; color: var(--text);">₹{{ "{:,.2f}".format(expense.amount) }}</td>
-                    <td class="actions">
-                        <a href="{{ url_for('expenses.edit_expense', expense_id=expense.id) }}" class="edit-btn" title="Edit"><i class="fa-solid fa-pen-to-square"></i></a>
-                        <a href="{{ url_for('expenses.delete_expense', expense_id=expense.id) }}" class="delete-btn" title="Delete" onclick="return confirm('Remove this record?')"><i class="fa-solid fa-trash"></i></a>
+                    <td style="padding: 1.25rem; font-weight: 500;">{{ expense.description or '—' }}</td>
+                    <td style="padding: 1.25rem; font-weight: 800; color: var(--text-dark); text-align: right;">₹{{ '{:,.2f}'.format(expense.amount) }}</td>
+                    <td style="padding: 1.25rem; text-align: center;">
+                        <div style="display: flex; gap: 0.5rem; justify-content: center;">
+                            <a href="{{ url_for('expenses.edit_expense', expense_id=expense.id) }}" class="btn-icon"><i class="fa-solid fa-pen"></i></a>
+                            <a href="{{ url_for('expenses.delete_expense', expense_id=expense.id) }}" class="btn-icon" style="color: var(--danger);" onclick="return confirm('Delete this expense?')"><i class="fa-solid fa-trash"></i></a>
+                        </div>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" style="text-align: center; padding: 4rem;">
-                        <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.2;"><i class="fa-solid fa-folder-open"></i></div>
-                        <h3 style="color: var(--text-light);">No transactions found</h3>
-                        <p style="color: var(--text-light); opacity: 0.7; font-size: 0.9rem;">Try adjusting your filters or add a new expense.</p>
+                    <td colspan="5" style="text-align: center; padding: 4rem; color: var(--text-muted);">
+                        <i class="fa-solid fa-receipt" style="font-size: 3rem; opacity: 0.2; margin-bottom: 1rem; display: block;"></i>
+                        No transactions found.
                     </td>
                 </tr>
                 {% endfor %}
@@ -148,63 +138,36 @@
         </table>
     </div>
 </section>
-{% endblock %}
 
-{% block scripts %}
 <script>
-    // Category Pie Chart
-    const catCtx = document.getElementById('categoryChart').getContext('2d');
-    const categoryData = {
-        labels: [{% for item in category_totals %}'{{ item.category }}',{% endfor %}],
-        datasets: [{
-            data: [{% for item in category_totals %}{{ item.total }},{% endfor %}],
-            backgroundColor: [
-                '#6366f1', '#ec4899', '#10b981', '#ef4444', '#f59e0b'
-            ],
-            borderWidth: 0
-        }]
-    };
-    
-    new Chart(catCtx, {
-        type: 'doughnut',
-        data: categoryData,
-        options: {
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'bottom' }
+    const chartEl = document.getElementById('categoryChart');
+    if (chartEl) {
+        const labels = JSON.parse(chartEl.getAttribute('data-labels') || '[]');
+        const values = JSON.parse(chartEl.getAttribute('data-values') || '[]');
+        
+        new Chart(chartEl.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: ['#4f46e5', '#7c3aed', '#10b981', '#ef4444', '#f59e0b', '#3b82f6'],
+                    borderWidth: 0,
+                    hoverOffset: 10
+                }]
             },
-            cutout: '70%'
-        }
-    });
-
-    // Monthly Trend Bar Chart
-    const trendCtx = document.getElementById('trendChart').getContext('2d');
-    const trendData = {
-        labels: [{% for item in monthly_summary|reverse %}'{{ item.month }}',{% endfor %}],
-        datasets: [{
-            label: 'Total Spending',
-            data: [{% for item in monthly_summary|reverse %}{{ item.total }},{% endfor %}],
-            backgroundColor: 'rgba(99, 102, 241, 0.2)',
-            borderColor: '#6366f1',
-            borderWidth: 2,
-            tension: 0.4,
-            fill: true
-        }]
-    };
-
-    new Chart(trendCtx, {
-        type: 'line',
-        data: trendData,
-        options: {
-            maintainAspectRatio: false,
-            scales: {
-                y: { beginAtZero: true, grid: { display: false } },
-                x: { grid: { display: false } }
-            },
-            plugins: {
-                legend: { display: false }
+            options: {
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                cutout: '75%'
             }
-        }
-    });
+        });
+    }
 </script>
 {% endblock %}
+
+
+
+

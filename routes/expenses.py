@@ -1,5 +1,6 @@
-from flask import Blueprint, render_template, redirect, url_for, request, flash, session
+from flask import Blueprint, render_template, redirect, url_for, request, flash, session, make_response
 from database import get_db_connection
+
 from datetime import datetime
 
 expenses_bp = Blueprint('expenses', __name__)
@@ -13,9 +14,7 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-import csv
-from io import StringIO
-from flask import make_response
+
 
 @expenses_bp.route('/dashboard')
 @login_required
@@ -210,6 +209,7 @@ def edit_expense(expense_id):
         
     return render_template('edit_expense.html', expense=expense)
 
+
 @expenses_bp.route('/delete/<int:expense_id>')
 @login_required
 def delete_expense(expense_id):
@@ -223,3 +223,8 @@ def delete_expense(expense_id):
         conn.close()
         flash('Expense deleted!', 'success')
     return redirect(url_for('expenses.dashboard'))
+
+
+import csv
+from io import StringIO
+
